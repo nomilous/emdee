@@ -17,6 +17,8 @@
   },
   "homepage": "https://github.com/nomilous/emdee#readme",
   "dependencies": {
-    "marked": "^0.2.5"
+    "colors": "^1.1.2",
+    "underscore.string": "^3.2.2",
+    "wordwrap": "^1.0.0"
   }
 }

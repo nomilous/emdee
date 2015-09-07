@@ -1,9 +1,21 @@
-var marked = require('marked'); // if a more recent version of marked has already been 'required'
-                              // this might fail to render the markdown to console.
-                             //
-                            // Recent versions of marked no longer support console renderning.
+var marked = require('./deps/marked');
+
+
+var os = require('os');
+var setted = false;
+var failed = false;
 
 module.exports = function(object, opts) {
+
+  if (!setted) {
+    try {
+      marked.setOptions({gfm: true, terminal: true});
+      setted = true;
+    } catch (e) {
+      failed = true;
+      console.log(e);
+    }
+  }
 
   opts = opts || {};
 
@@ -47,26 +59,88 @@ module.exports = function(object, opts) {
   recurse(object);
 }
 
+var cant = function() {
+  console.log();
+  console.log('Readme not available...');
+  console.log('see https://github.com/nomilous/emdee/blob/master/index.js#L4');
+  console.log();
+}
+
 module.exports.replace = function(obj, key) {
 
-  console.log('replace', key, 'on', obj);
+  if (!setted) {
+    try {
+      marked.setOptions({gfm: true, terminal: true});
+      setted = true;
+    } catch (e) {
+      failed = true;
+    }
+  }
+
+  var formatted = module.exports.parse(obj[key]);
+
+  Object.defineProperty(obj, key, {
+    enumerable: true,
+    get: function() {
+      if (failed) return cant();
+      try {
+        console.log(marked.parse( formatted ));
+      } catch (e) {
+        console.log(e);
+        return cant();
+      }
+    }
+  });
 
 }
 
 
 module.exports.suffix = function(obj, key, suffix) {
 
+  if (typeof obj[key + suffix] !== 'undefined') return;
+
+  if (!setted) {
+    try {
+      marked.setOptions({gfm: true, terminal: true});
+      setted = true;
+    } catch (e) {
+      failed = true;
+    }
+  }
+
+  var formatted = module.exports.parse(obj[key]);
+
   Object.defineProperty(obj, key + suffix, {
     enumerable: true,
     get: function() {
+      if (failed) return cant();
       try {
-
+        console.log(marked.parse( formatted ));
       } catch (e) {
-        console.log('Readme not available.')
+        console.log(e);
+        return cant();
       }
     }
   });
+}
 
-  // console.log('suffix', key, 'on', obj);
+module.exports.parse = function(fn) {
+
+  var leftSpace, lines = fn.toString().split(os.EOL);
+  
+  lines.shift(); // remove first line: function() {/*
+  lines.pop();  // remove last line:   */} 
+
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].match(/#/)) {
+      var leftSpace = lines[i].indexOf('#');
+      break;
+    }
+  }
+
+  return lines.map(function(line) {
+    return line.substr(leftSpace);
+  }).join(os.EOL);
 
 }
+
