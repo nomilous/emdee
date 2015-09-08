@@ -1,11 +1,19 @@
 var marked = require('./deps/marked');
 
-
 var os = require('os');
 var setted = false;
 var failed = false;
+var done = false;
+var debug = require('debug')('emdee');
+
+debug('moooo');
 
 module.exports = function(object, opts) {
+
+  if (done) {
+    debug('already generated README\'s'); // todo, make this per path
+    return;
+  }
 
   if (!setted) {
     try {
@@ -13,50 +21,61 @@ module.exports = function(object, opts) {
       setted = true;
     } catch (e) {
       failed = true;
-      console.log(e);
+      debug('could not set marked options', e);
+      return; // todo, rather generate the html instead ??
     }
   }
 
   opts = opts || {};
+  opts.paths = opts.paths || ['README'];
+  opts.suffix = opts.suffix || null; // create a newpropery as keySUFFIX instead of
+                                    // replacing at key
 
-  opts.match = opts.match || [/^README$/];
-  opts.recurse = opts.recurse || [/^\$/];
-  opts.replace = typeof opts.replace == 'boolean' ? opts.replace : true;
+  for (var i = 0; i < opts.paths.length; i++) {
+    module.exports.convertAtPath(opts.paths[i], opts, object);
+  }
+}
 
-  opts.suffix = opts.suffix || '_md'; // only used if replace is false
+module.exports.convertAtPath = function(keyPath, opts, object) {
 
-  var recurse = function(obj, parent) {
-    Object.keys(obj).forEach(function(key) {
-      try {
-        var next = obj[key];
-        if (typeof next === 'function') {
-          for (var i = 0; i < opts.match.length; i++) {
-            if (key.match(opts.match[i])) {
-              if (opts.replace) {
-                module.exports.replace(obj, key);
-              } else {
-                module.exports.suffix(obj, key, opts.suffix);
-              }
-              break;
-            }
-          }
-        }
+  debug('convertAtPath \'%s\'', keyPath);
 
-        if (typeof next === 'object' || typeof next === 'function') {
-          for (var i = 0; i < opts.recurse.length; i++) {
-            if (key.match(opts.recurse[i])) {
-              recurse(next, obj);
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        console.log(e);
-      } 
-    });
+  var keys = keyPath.split('/');
+
+  var recurse = function(remainingKeys, obj) {
+
+    debug('recurse');
+
+    if (remainingKeys.length == 0) return;
+
+    var nextKey = remainingKeys.shift();
+    var nextObj = obj[nextKey];
+
+    debug('convertAt nextKey \'%s\', remaining: %d', nextKey, remainingKeys.length);
+
+    if (remainingKeys.length == 0) {
+      if (opts.suffix) {
+        return module.exports.suffix(obj, nextKey, opts.suffix);
+      } else {
+        return module.exports.replace(obj, nextKey);
+      }    
+    }
+
+    if (remainingKeys.length == 1) {
+      if (opts.suffix) {
+        return module.exports.suffix(nextObj, remainingKeys[0], opts.suffix);
+      } else {
+        return module.exports.replace(nextObj, remainingKeys[0]);
+      }
+    } 
+    
+
+    if (nextKey == '') recurse(remainingKeys);
+
   }
 
-  recurse(object);
+  recurse(keys, object);
+
 }
 
 var cant = function() {
@@ -67,6 +86,8 @@ var cant = function() {
 }
 
 module.exports.replace = function(obj, key) {
+
+  debug('create README at \'%s\'', key);
 
   if (!setted) {
     try {
@@ -94,8 +115,9 @@ module.exports.replace = function(obj, key) {
 
 }
 
-
 module.exports.suffix = function(obj, key, suffix) {
+
+  debug('create README at \'%s\' with suffix \'%s\'', key, suffix);
 
   if (typeof obj[key + suffix] !== 'undefined') return;
 
@@ -110,7 +132,15 @@ module.exports.suffix = function(obj, key, suffix) {
 
   var formatted = module.exports.parse(obj[key]);
 
-  Object.defineProperty(obj, key + suffix, {
+  if (suffix[0] == '.') {
+    debug('nesting into \'%s\'', key + suffix);
+    obj = obj[key] || {};
+    key = suffix.substr(1);
+  } else {
+    key = key + suffix;
+  }
+
+  Object.defineProperty(obj, key, {
     enumerable: true,
     get: function() {
       if (failed) return cant();
