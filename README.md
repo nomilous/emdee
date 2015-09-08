@@ -74,7 +74,8 @@ function() {/*
 
     p.s. The parser is exported, you can change it before calling emdee()
 
-    p.s. If this leads you to making something awesome, please let me know, i might like to use it.
+    p.s. If this leads you to making something awesome, please let me know, 
+         i might like to use it.
 
 
     ### why does it use '/' instead of '.' as the path delimiter?
