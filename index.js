@@ -6,8 +6,6 @@ var failed = false;
 var done = false;
 var debug = require('debug')('emdee');
 
-debug('moooo');
-
 module.exports = function(object, opts) {
 
   if (done) {
